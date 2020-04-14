@@ -1,2 +1,1 @@
-# alium-bets-test-tool-aws-infra
-Alium Bets Test Tool AWS Resources
+# Alium Bets Test Tool AWS Resources
