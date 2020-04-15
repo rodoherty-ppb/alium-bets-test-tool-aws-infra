@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: ECS task definition for Alium Best Test Tool
+
+Parameters:
+  ServiceName:
+    Type: String
+    Default: 'AliumBetsTestTool'
+
+  Image:
+    Type: String
+    Default: 430758838994.dkr.ecr.eu-west-1.amazonaws.com/alium-ecr-repo:latest
+  
+  ContainerName:
+    Type: String
+
+  ContainerPort:
+    Type: Number
+    Default: 80
+
+  LoadBalancerPort:
+    Type: Number
+    Default: 80
+
+  Environment:
+    Type: String
+    AllowedValues:
+      - NXT
+      - PRD
+    Default: NXT
+    Description: "What environment is this?"
+
+  ContainerSecurityGroup:
+    Type: String
+    Description: "Security Group that ECS Service will use" 
+
+  HealthCheckPath:
+    Type: String
+    Default: '/'
+
+Mappings:
+  Environments:
+    NXT:
+      VpcId: vpc-9a7c47fe
+      SubnetIds:
+        - subnet-84ded2e0
+        - subnet-99d8daef
+        - subnet-a9074ff1
+#        - subnet-d53f1ab2
+
+Resources: 
+  AliumBetsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    # Makes sure the log group is created before it is used.
+    DependsOn: LogGroup
+    Properties:
+      # Name of the task definition. Subsequent versions of the task definition are grouped together under this name.
+      Family: !Ref ServiceName
+      # awsvpc is required for Fargate
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE  
+      Cpu: 256
+      Memory: 0.5GB
+      TaskRoleArn: !GetAtt [TaskDefinitionRole, Arn]
+      ExecutionRoleArn: !GetAtt [TaskDefinitionRole, Arn]
+      
+      ContainerDefinitions:
+        - Name: !Ref ContainerName
+          Image: !Ref Image
+          PortMappings: 
+            -
+              HostPort: !Ref ContainerPort
+              Protocol: TCP
+              ContainerPort: !Ref ContainerPort
+          
+          # Send logs to CloudWatch Logs
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+
+  TaskDefinitionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      ManagedPolicyArns: ['arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy']
+
+  # A role needed for auto scaling
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ['', [!Ref ServiceName, AutoScalingRole]]
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+          Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+      - 'arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole'
+ 
+  ECSAliumBetsService:
+    Type: AWS::ECS::Service
+    DependsOn: ListenerHTTP
+    Properties: 
+      ServiceName: !Ref ServiceName
+      Cluster: Alium-Fargate-ECS-Cluster
+      DesiredCount: 1
+      TaskDefinition: !Ref AliumBetsTaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      # This may need to be adjusted if the container takes a while to start up
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      NetworkConfiguration: 
+        AwsvpcConfiguration:
+          # change to DISABLED if you're using private subnets that have access to a NAT gateway
+          AssignPublicIp: DISABLED 
+          Subnets: !FindInMap [Environments, !Ref Environment, SubnetIds]
+          SecurityGroups:
+            - !Ref ContainerSecurityGroup            
+      LoadBalancers:
+      - ContainerName: !Ref ContainerName
+        ContainerPort: !Ref ContainerPort
+        TargetGroupArn: !Ref TargetGroup
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckTimeoutSeconds: 30
+      UnhealthyThresholdCount: 5
+      HealthyThresholdCount: 2
+      Name: !Join ['', [!Ref ServiceName, TargetGroup]]
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60 # default is 300
+      TargetType: ip
+      VpcId: !FindInMap [Environments, !Ref Environment, VpcId]
+
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: !Ref LoadBalancerPort
+      Protocol: HTTP
+  
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      LoadBalancerAttributes:
+       # this is the default, but is specified here in case it needs to be changed
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+        - Key: access_logs.s3.enabled
+          Value: true
+        - Key: access_logs.s3.bucket
+          Value: risk-and-trading-dev-logs-3ec28638f5
+        - Key: access_logs.s3.prefix
+          Value: nxt/general
+        - Key: deletion_protection.enabled
+          Value: false
+
+      Name: !Join ['', [!Ref ServiceName, LoadBalancer]]
+      # "internal" is also an option
+      Scheme: internal
+      SecurityGroups:
+        - !Ref ContainerSecurityGroup
+      Subnets: !FindInMap [Environments, !Ref Environment, SubnetIds]
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['', [/ecs/, !Ref ServiceName, TaskDefinition]]
+
+  BetsToolDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Name: alium-bets-test-tool.nxt.aws.cloud.ppb.
+      Type: A
+      HostedZoneName: nxt.aws.cloud.ppb.
+      AliasTarget:
+        DNSName: !GetAtt [LoadBalancer, DNSName]
+        HostedZoneId: !GetAtt [LoadBalancer, CanonicalHostedZoneID]
+      

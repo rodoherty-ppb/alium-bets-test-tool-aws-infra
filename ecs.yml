@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Alium ECS Fargate cluster definition
+
+Parameters:
+
+  ContainerPort:
+    Type: Number
+    Default: 80
+  LoadBalancerPort:
+    Type: Number
+    Default: 443
+  HealthCheckPath:
+    Type: String
+    Default: /healthcheck
+
+# for autoscaling
+  MinContainers:
+    Type: Number
+    Default: 2
+  # for autoscaling
+  MaxContainers:
+    Type: Number
+    Default: 10
+  # target CPU utilization (%)
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 50
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: 'Alium-Fargate-ECS-Cluster'
+      Tags: 
+      - 
+        Key: 'Name' 
+        Value: 'Alium-Fargate-ECS-Cluster'
+      - 
+        Key: 'Project' 
+        Value: 'Alium'
+      - 
+        Key: 'Team' 
+        Value: 'Alium Cloud Engineers'
+
+
+  
+
