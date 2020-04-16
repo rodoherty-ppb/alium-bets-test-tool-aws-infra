@@ -111,7 +111,8 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: ListenerHTTP
     Properties: 
-      ServiceName: !Ref ServiceName
+      #ServiceName: !Ref ServiceName
+      ServiceName: !Sub '${ServiceName}1'
       Cluster: Alium-Fargate-ECS-Cluster
       DesiredCount: 1
       TaskDefinition: !Ref AliumBetsTaskDefinition
