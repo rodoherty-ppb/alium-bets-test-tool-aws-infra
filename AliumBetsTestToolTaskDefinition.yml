@@ -119,6 +119,8 @@ Resources:
         MinimumHealthyPercent: 100
         MaximumPercent: 200
       # This may need to be adjusted if the container takes a while to start up
+      DeploymentController:
+        Type: CODE_DEPLOY
       HealthCheckGracePeriodSeconds: 30
       LaunchType: FARGATE
       NetworkConfiguration: 
