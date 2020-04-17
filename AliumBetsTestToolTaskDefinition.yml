@@ -36,7 +36,7 @@ Parameters:
 
   HealthCheckPath:
     Type: String
-    Default: '/'
+    Default: '/health'
 
 Mappings:
   Environments:
@@ -138,10 +138,10 @@ Resources:
   TargetGroup1:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      HealthCheckIntervalSeconds: 60
+      HealthCheckIntervalSeconds: 30
       # will look for a 200 status code by default unless specified otherwise
       HealthCheckPath: !Ref HealthCheckPath
-      HealthCheckTimeoutSeconds: 30
+      HealthCheckTimeoutSeconds: 5 
       UnhealthyThresholdCount: 10
       HealthyThresholdCount: 2
       Name: !Join ['', [!Ref ServiceName, TargetGroup1]]
@@ -156,10 +156,10 @@ Resources:
   TargetGroup2:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      HealthCheckIntervalSeconds: 60
+      HealthCheckIntervalSeconds: 30
       # will look for a 200 status code by default unless specified otherwise
       HealthCheckPath: !Ref HealthCheckPath
-      HealthCheckTimeoutSeconds: 30
+      HealthCheckTimeoutSeconds: 50
       UnhealthyThresholdCount: 10
       HealthyThresholdCount: 2
       Name: !Join ['', [!Ref ServiceName, TargetGroup2]]
