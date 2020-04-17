@@ -4,8 +4,9 @@ The CloudFormation template in this repo describes the AWS architecture of the A
 
 The template includes resources such as LoadBalancer, ECS Service, ECS Task Definition and IAM Roles.
 
-A source code change to this repo on the `master` branch will trigger a redeploy of the Alium Bets Test Tool into ECS.
-
+## How to deploy changes to AWS
+Changes are deployed by making a source change in this repo and committing to master.
+A pipeline will pick up the changes and redeploy the cloudformation stack.
 
 ## TODO
   * Remove some hard-coded names and, instead, use `!Sub ${AWS::StackName}-<resource_name>`.

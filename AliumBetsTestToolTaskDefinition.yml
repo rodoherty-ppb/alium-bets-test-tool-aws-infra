@@ -133,18 +133,36 @@ Resources:
       LoadBalancers:
       - ContainerName: !Ref ContainerName
         ContainerPort: !Ref ContainerPort
-        TargetGroupArn: !Ref TargetGroup
+        TargetGroupArn: !Ref TargetGroup1
 
-  TargetGroup:
+  TargetGroup1:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       HealthCheckIntervalSeconds: 60
       # will look for a 200 status code by default unless specified otherwise
       HealthCheckPath: !Ref HealthCheckPath
       HealthCheckTimeoutSeconds: 30
-      UnhealthyThresholdCount: 5
+      UnhealthyThresholdCount: 10
       HealthyThresholdCount: 2
-      Name: !Join ['', [!Ref ServiceName, TargetGroup]]
+      Name: !Join ['', [!Ref ServiceName, TargetGroup1]]
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 60 # default is 300
+      TargetType: ip
+      VpcId: !FindInMap [Environments, !Ref Environment, VpcId]
+
+  TargetGroup2:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 60
+      # will look for a 200 status code by default unless specified otherwise
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckTimeoutSeconds: 30
+      UnhealthyThresholdCount: 10
+      HealthyThresholdCount: 2
+      Name: !Join ['', [!Ref ServiceName, TargetGroup2]]
       Port: !Ref ContainerPort
       Protocol: HTTP
       TargetGroupAttributes:
@@ -157,7 +175,9 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
-        - TargetGroupArn: !Ref TargetGroup
+        - TargetGroupArn: !Ref TargetGroup1
+          Type: forward
+        - TargetGroupArn: !Ref TargetGroup2
           Type: forward
       LoadBalancerArn: !Ref LoadBalancer
       Port: !Ref LoadBalancerPort
