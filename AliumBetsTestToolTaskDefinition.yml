@@ -175,10 +175,13 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
-        - TargetGroupArn: !Ref TargetGroup1
-          Type: forward
-        - TargetGroupArn: !Ref TargetGroup2
-          Type: forward
+        - Type: "forward"
+          ForwardConfig:
+            TargetGroups:
+              - TargetGroupArn: !Ref TargetGroup1
+                Weight: 999
+              - TargetGroupArn: !Ref TargetGroup2
+                Weight: 0
       LoadBalancerArn: !Ref LoadBalancer
       Port: !Ref LoadBalancerPort
       Protocol: HTTP
